@@ -1,0 +1,331 @@
+version: 2
+
+models:
+  - name: dim_users
+    description: One row per user - dimensions, lifecycle timestamps and lifetime totals.
+    columns:
+      - name: user_id
+        description: User primary key.
+        data_tests: [unique, not_null]
+      - name: signup_ts
+        description: Signup timestamp.
+      - name: signup_date
+        description: Signup date.
+      - name: signup_week
+        description: Weekly cohort (Monday).
+      - name: signup_weekday
+        description: Weekday name of signup.
+      - name: country
+        description: Country code.
+      - name: country_tier
+        description: high / mid / low pricing tier.
+      - name: platform
+        description: ios / android / web.
+      - name: acquisition_channel
+        description: organic / paid_social / search / referral / influencer.
+      - name: device_tier
+        description: low / mid / high.
+      - name: app_version_at_signup
+        description: App version at signup.
+      - name: onboarded_at
+        description: First onboarding_completed event.
+      - name: trial_at
+        description: First trial start.
+      - name: paid_at
+        description: First paid subscription start.
+      - name: last_active_at
+        description: Last session start.
+      - name: is_paying
+        description: Has a subscription with status active at data end.
+      - name: lifetime_sessions
+        description: Sessions over the whole window.
+      - name: lifetime_net_revenue_usd
+        description: Charges minus refunds over the whole window.
+
+  - name: fct_events
+    description: One row per cleaned event enriched with user dimensions.
+    columns:
+      - name: event_id
+        description: Event primary key.
+        data_tests: [unique, not_null]
+      - name: user_id
+        description: User key.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: session_id
+        description: Session key (null for server events).
+      - name: event_ts
+        description: Event timestamp.
+      - name: event_date
+        description: Event date.
+      - name: day_n
+        description: 24 h block since signup.
+      - name: event_name
+        description: Event type.
+      - name: feature
+        description: Feature (feature_used only).
+      - name: onboarding_step
+        description: Onboarding step number.
+      - name: paywall_source
+        description: Paywall placement.
+      - name: paywall_variant
+        description: Paywall design.
+      - name: plan
+        description: Plan on trial/subscription events.
+      - name: cancel_reason
+        description: Cancellation reason.
+      - name: platform
+        description: Platform (cleaned).
+      - name: app_version
+        description: App version.
+      - name: signup_ts
+        description: User signup timestamp.
+      - name: country
+        description: User country.
+      - name: country_tier
+        description: User country tier.
+      - name: acquisition_channel
+        description: User channel.
+      - name: device_tier
+        description: User device tier.
+
+  - name: fct_funnel_user
+    description: >
+      One row per user with ordered funnel stages Signup -> Onboarded -> Trial -> Paid.
+      A stage counts only if the previous stage happened at or before it.
+    columns:
+      - name: user_id
+        description: User key.
+        data_tests: [unique, not_null]
+      - name: signup_ts
+        description: Signup timestamp.
+      - name: signup_date
+        description: Signup date.
+      - name: platform
+        description: Platform.
+      - name: acquisition_channel
+        description: Channel.
+      - name: country_tier
+        description: Country tier.
+      - name: device_tier
+        description: Device tier.
+      - name: onboarded_at
+        description: Onboarding completion time.
+      - name: trial_at
+        description: Ordered trial start (null if not after onboarding).
+      - name: paid_at
+        description: Ordered paid start (null if not after an ordered trial).
+      - name: is_signed_up
+        description: Always 1.
+      - name: is_onboarded
+        description: 1 if onboarded.
+      - name: is_trial
+        description: 1 if ordered trial.
+      - name: is_paid
+        description: 1 if ordered paid.
+
+  - name: agg_funnel_daily
+    description: One row per signup date - funnel counts and step rates for that signup cohort.
+    columns:
+      - name: signup_date
+        description: Signup date.
+        data_tests: [unique, not_null]
+      - name: signups
+        description: Users who signed up.
+      - name: onboarded
+        description: ... of whom onboarded.
+      - name: trials
+        description: ... started a trial after onboarding.
+      - name: paid
+        description: ... converted to paid after the trial.
+      - name: onboarding_rate
+        description: onboarded / signups.
+      - name: onboarded_to_trial_rate
+        description: trials / onboarded.
+      - name: trial_to_paid_rate
+        description: paid / trials.
+      - name: signup_to_paid_rate
+        description: paid / signups.
+
+  - name: agg_funnel_by_segment
+    description: One row per segment type x value (channel, platform, country tier, device tier).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [segment_type, segment_value]
+    columns:
+      - name: segment_type
+        description: Dimension name.
+      - name: segment_value
+        description: Dimension value.
+      - name: signups
+        description: Users.
+      - name: onboarded
+        description: Onboarded users.
+      - name: trials
+        description: Ordered trials.
+      - name: paid
+        description: Ordered paid.
+      - name: onboarding_rate
+        description: onboarded / signups.
+      - name: onboarded_to_trial_rate
+        description: trials / onboarded.
+      - name: trial_to_paid_rate
+        description: paid / trials.
+      - name: signup_to_paid_rate
+        description: paid / signups.
+
+  - name: agg_retention_cohorts
+    description: >
+      One row per weekly signup cohort x day N (1, 3, 7, 14, 30). Eligibility-aware:
+      only users whose full day-N block is observed are in the denominator; immature
+      cells have retention_rate = null.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [cohort_week, day_n]
+    columns:
+      - name: cohort_week
+        description: Monday of the signup week.
+      - name: day_n
+        description: Day N.
+      - name: cohort_size
+        description: Users in the cohort.
+      - name: eligible_users
+        description: Users with a fully observed day-N block.
+      - name: retained_users
+        description: Eligible users with a session in the day-N block.
+      - name: retention_rate
+        description: retained / eligible (null when nobody is eligible).
+      - name: is_mature
+        description: True when every cohort member is eligible.
+
+  - name: fct_revenue_daily
+    description: One row per calendar date - cash revenue, refunds, MRR, active subscriptions and ARPU ratios.
+    columns:
+      - name: revenue_date
+        description: Calendar date.
+        data_tests: [unique, not_null]
+      - name: gross_revenue_usd
+        description: Sum of charges.
+      - name: refunds_usd
+        description: Sum of refunds (positive).
+      - name: net_revenue_usd
+        description: gross - refunds.
+      - name: charges
+        description: Number of charges.
+      - name: refund_count
+        description: Number of refunds.
+      - name: mrr_usd
+        description: Monthly recurring revenue at end of day (annual plans / 12).
+      - name: active_subscriptions
+        description: Paid periods covering the end of the day.
+      - name: dau
+        description: Daily active users.
+      - name: arpdau_usd
+        description: Net revenue / DAU.
+      - name: arppu_monthly_usd
+        description: MRR / active subscriptions (average revenue per paying user per month).
+
+  - name: agg_kpis_daily
+    description: One row per calendar date - DAU/WAU/MAU, stickiness, new users and conversions.
+    columns:
+      - name: kpi_date
+        description: Calendar date.
+        data_tests: [unique, not_null]
+      - name: dau
+        description: Distinct users with a session that date.
+      - name: wau
+        description: Distinct users active in the trailing 7 days.
+      - name: mau
+        description: Distinct users active in the trailing 30 days.
+      - name: stickiness
+        description: DAU / MAU.
+      - name: new_users
+        description: Signups that date.
+      - name: onboardings
+        description: onboarding_completed events.
+      - name: trials_started
+        description: trial_started events.
+      - name: paid_conversions
+        description: subscription_started events.
+      - name: net_revenue_usd
+        description: Net revenue that date.
+
+  - name: fct_experiment_exposures
+    description: >
+      One row per user x experiment - THE contract consumed by the experimentation
+      engine (Phase 2). Rates must be computed among rows whose matching *_eligible
+      flag is 1. "In test" metrics cover [assigned_at, test_end).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [experiment_id, user_id]
+    columns:
+      - name: experiment_id
+        description: Experiment key (onboarding_flow_v2, paywall_redesign, streak_reminder).
+        data_tests: [not_null]
+      - name: user_id
+        description: Exposed user.
+        data_tests: [not_null]
+      - name: variant
+        description: control or treatment.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [control, treatment]
+      - name: assigned_at
+        description: Assignment timestamp (start of exposure).
+      - name: test_end
+        description: min(experiment end_date, data_end) - end of the in-test window.
+      - name: signup_ts
+        description: User signup timestamp.
+      - name: assigned_at_signup
+        description: True for new-user experiments randomised at signup (no pre-period).
+      - name: platform
+        description: Segment - platform.
+      - name: acquisition_channel
+        description: Segment - channel.
+      - name: country_tier
+        description: Segment - country tier.
+      - name: device_tier
+        description: Segment - device tier.
+      - name: pre_sessions_14d
+        description: Sessions in [assigned_at - 14 d, assigned_at) - CUPED covariate.
+      - name: pre_active_days_14d
+        description: Distinct active dates in the same pre-period.
+      - name: onboarding_completed
+        description: 1 if the user ever completed onboarding.
+      - name: trial_eligible
+        description: 1 if signup + 14 d <= data_end.
+      - name: trial_started_14d
+        description: 1 if a trial started within 14 days of signup.
+      - name: paid_eligible
+        description: 1 if signup + 30 d <= data_end.
+      - name: paid_30d
+        description: 1 if a paid subscription started within 30 days of signup.
+      - name: d1_eligible
+        description: 1 if the day-1 block is fully observed.
+      - name: d1_retained
+        description: 1 if a session started in the day-1 block.
+      - name: d7_eligible
+        description: 1 if the day-7 block is fully observed.
+      - name: d7_retained
+        description: 1 if a session started in the day-7 block.
+      - name: d30_eligible
+        description: 1 if the day-30 block is fully observed.
+      - name: d30_retained
+        description: 1 if a session started in the day-30 block.
+      - name: trial_started_in_test
+        description: 1 if a trial started during [assigned_at, test_end).
+      - name: paid_in_test
+        description: 1 if a paid subscription started in the test window.
+      - name: refund_in_test
+        description: 1 if a refund was issued in the test window.
+      - name: sessions_in_test
+        description: Sessions started in the test window.
+      - name: net_revenue_in_test
+        description: Net revenue (charges - refunds) in the test window.

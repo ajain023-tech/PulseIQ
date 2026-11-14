@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pulseiq"
+version = "0.2.0"
+description = "PulseIQ - product analytics & experimentation platform: event pipeline, validated A/B engine, retention ML and an AI analyst."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Anushka Jain" }]
+dependencies = [
+  "pandas~=3.1.1",
+  "numpy~=2.4.6",
+  "pyarrow~=26.0.1",
+  "duckdb~=2.0.0",
+  "dbt-core~=1.12.7",
+  "dbt-duckdb~=1.11.1",
+  "typer~=0.29.1",
+  "pydantic~=2.14.3",
+  "scipy~=1.17.1",
+  "pyyaml~=6.0.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest~=9.2.0", "ruff~=0.17.5"]
+
+[project.scripts]
+pulseiq = "pulseiq.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["legacy", "warehouse/target", "warehouse/dbt_packages"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ARG"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: full-size tests (deselect with -m 'not slow')"]
+addopts = "-ra"

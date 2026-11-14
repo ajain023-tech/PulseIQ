@@ -14,7 +14,7 @@ Run from the project root with `python -m pip install -r requirements.txt` and `
 - **Retention & Cohorts:** eligible D1/D7/D30 rates, Control/Treatment retention, monthly assignment cohorts, and retention decay. These are assignment cohorts, not acquisition cohorts.
 - **A/B Experiment:** the existing six Phase 4 tests, confidence intervals, p-values, and unadjusted alpha 0.05 labels. Statistical significance is not automatic causal proof; no overall winner is declared.
 - **ML Retention Prediction:** Phase 7 comparison, confusion matrices, ROC and precision-recall curves for D30 retention. The target is imbalanced; accuracy is not sufficient by itself, and no model is labeled best.
-- **SQL Analysis:** SQL files 01?11 and output availability. The app displays query topics but does not execute BigQuery.
+- **SQL Analysis:** SQL files 01–11 and output availability. The app displays query topics but does not execute BigQuery.
 - **Documented Monetization:** historical project-level metrics from the README, clearly distinguished from local data; no local revenue is inferred.
 - **Data & Methodology:** local schema, cleaning report, analysis methods, and source limits.
 - **Project Workflow:** concise viva-ready pipeline sequence.

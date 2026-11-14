@@ -1,0 +1,27 @@
+# generated data & artifacts
+data/raw/
+data/warehouse/
+artifacts/
+*.duckdb
+*.duckdb.wal
+warehouse/target/
+warehouse/logs/
+warehouse/dbt_packages/
+logs/
+
+# secrets
+.env
+.streamlit/secrets.toml
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# os
+.DS_Store

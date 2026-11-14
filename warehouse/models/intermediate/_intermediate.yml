@@ -1,0 +1,120 @@
+version: 2
+
+models:
+  - name: int_data_window
+    description: Single row with the observation window (data_start date, exclusive data_end timestamp).
+    columns:
+      - name: data_start
+        description: First signup date.
+      - name: data_end
+        description: Exclusive end of observation (midnight after the last raw event).
+
+  - name: int_user_first_72h
+    description: >
+      One row per user describing behaviour strictly before signup_ts + 72 h.
+      Feature-ready input for the retention model (no post-72 h information).
+    columns:
+      - name: user_id
+        description: User key.
+        data_tests: [unique, not_null]
+      - name: signup_ts
+        description: Signup timestamp.
+      - name: sessions_72h
+        description: Sessions started in the first 72 h.
+      - name: active_days_72h
+        description: Distinct day-N blocks (0, 1, 2) with a session (0-3).
+      - name: total_events_72h
+        description: Events excluding session_start/session_end.
+      - name: distinct_features_72h
+        description: Distinct features used.
+      - name: workout_log_72h
+        description: feature_used(workout_log) count.
+      - name: plan_view_72h
+        description: feature_used(plan_view) count.
+      - name: progress_chart_72h
+        description: feature_used(progress_chart) count.
+      - name: social_share_72h
+        description: feature_used(social_share) count.
+      - name: reminder_set_72h
+        description: feature_used(reminder_set) count.
+      - name: onboarding_steps_completed
+        description: Onboarding steps completed (0-5).
+      - name: onboarding_completed_72h
+        description: 1 if onboarding was completed within 72 h.
+      - name: paywall_views_72h
+        description: Paywall impressions.
+      - name: trial_started_72h
+        description: 1 if a trial started within 72 h.
+      - name: push_opens_72h
+        description: Push notifications opened.
+      - name: minutes_to_first_workout
+        description: Minutes from signup to first workout_log (4320 if none in 72 h).
+
+  - name: int_user_daily_activity
+    description: One row per user per calendar date with at least one session.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [user_id, activity_date]
+    columns:
+      - name: user_id
+        description: User key.
+      - name: activity_date
+        description: Calendar date.
+      - name: day_n
+        description: Smallest day-N block touched that date.
+      - name: sessions
+        description: Sessions that date.
+      - name: events
+        description: Events that date.
+
+  - name: int_user_day_n_activity
+    description: One row per user per active day-N block (basis of exact-day retention).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [user_id, day_n]
+    columns:
+      - name: user_id
+        description: User key.
+      - name: day_n
+        description: 24 h block since signup.
+      - name: sessions
+        description: Sessions started in the block.
+
+  - name: int_onboarding_steps
+    description: One row per user x onboarding step (1-5).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [user_id, step]
+    columns:
+      - name: user_id
+        description: User key.
+      - name: step
+        description: Step number 1-5.
+      - name: viewed
+        description: 1 if the step was viewed.
+      - name: completed
+        description: 1 if the step was completed.
+
+  - name: int_subscription_periods
+    description: One row per paid billing period (non-refund charge).
+    columns:
+      - name: invoice_id
+        description: Charge invoice key.
+        data_tests: [unique, not_null]
+      - name: subscription_id
+        description: Subscription key.
+      - name: user_id
+        description: Subscriber.
+      - name: plan
+        description: monthly or annual.
+      - name: monthly_value_usd
+        description: Monthly-equivalent value used for MRR.
+      - name: period_start
+        description: Charge timestamp.
+      - name: period_end
+        description: End of coverage (30 / 365 days, or earlier at cancellation/refund).
+      - name: amount_usd
+        description: Charged amount.
