@@ -38,8 +38,10 @@ def wait_ready(page) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default="http://localhost:8501")
+    ap.add_argument("--out", default=str(OUT), help="Directory for the PNGs (default docs/images)")
     args = ap.parse_args()
-    OUT.mkdir(parents=True, exist_ok=True)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
     failures = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -56,7 +58,7 @@ def main() -> int:
                 if page.locator("h1").count()
                 else "(no title)"
             )
-            page.screenshot(path=str(OUT / f"{name}.png"), full_page=True)
+            page.screenshot(path=str(out / f"{name}.png"), full_page=True)
             status = "PASS" if errors == 0 else f"FAIL ({errors} exceptions)"
             failures += errors > 0
             print(f"{name:<22} {status:<10} title={title!r}")

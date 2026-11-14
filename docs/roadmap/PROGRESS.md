@@ -69,11 +69,11 @@ All checks passed!
 ruff format --check src tests
 18 files already formatted
 $ pulseiq generate --small && pulseiq build
-Generated size=small seed=42 in 0.4s -> /Users/anushkajain/Desktop/ProductAnalytics/data/raw
+Generated size=small seed=42 in 0.4s -> ./data/raw
 dbt build: 22 models, 70 tests in 2.2s
 All models built and all tests passed.
 $ time (pulseiq generate && pulseiq build)
-Generated size=full seed=42 in 10.4s -> /Users/anushkajain/Desktop/ProductAnalytics/data/raw
+Generated size=full seed=42 in 10.4s -> ./data/raw
 dbt build: 22 models, 70 tests in 3.9s
 All models built and all tests passed.
 real 14.72
@@ -119,7 +119,7 @@ Trial started within 14 d (share of eligible signups)   0.163846      0.161794  
               D1 exact-day retention (eligible users)   0.407346      0.404369    0.40          -0.297711
               D7 exact-day retention (eligible users)   0.183563      0.204745    0.20           2.118226
              D30 exact-day retention (eligible users)   0.147618      0.143652    0.15          -0.396593
-Report: /Users/anushkajain/Desktop/ProductAnalytics/artifacts/reports/legacy_vs_generated.md
+Report: ./artifacts/reports/legacy_vs_generated.md
 $ pytest -q
 ...............                                                          [100%]
 15 passed in 14.43s
@@ -214,13 +214,13 @@ ruff format --check src tests
 46 files already formatted
 45 passed in 43.82s
 $ pulseiq generate && pulseiq build
-Generated size=full seed=42 in 10.5s -> /Users/anushkajain/Desktop/ProductAnalytics/data/raw
+Generated size=full seed=42 in 10.5s -> ./data/raw
 dbt build: 22 models, 70 tests in 4.5s
 All models built and all tests passed.
 $ pulseiq analyze --all
-onboarding_flow_v2     KEEP RUNNING  -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/onboarding_flow_v2
-streak_reminder        INVESTIGATE   -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/streak_reminder
-paywall_redesign       SHIP          -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/paywall_redesign
+onboarding_flow_v2     KEEP RUNNING  -> ./artifacts/experiments/onboarding_flow_v2
+streak_reminder        INVESTIGATE   -> ./artifacts/experiments/streak_reminder
+paywall_redesign       SHIP          -> ./artifacts/experiments/paywall_redesign
 Peeking A/A sim: fixed 5.2%, naive peeking 28.7%, sequential 1.3%
 $ pulseiq train && pulseiq survival
 Best model: hist_gradient_boosting {'learning_rate': 0.05, 'max_depth': 3, 'max_leaf_nodes': 15, 'l2_regularization': 1.0}
@@ -228,7 +228,7 @@ Best model: hist_gradient_boosting {'learning_rate': 0.05, 'max_depth': 3, 'max_
   active_days_heuristic    PR-AUC 0.303  ROC-AUC 0.766  recall 0.949  F1 0.375  accuracy 0.518
   logistic_regression      PR-AUC 0.486  ROC-AUC 0.852  recall 0.707  F1 0.512  accuracy 0.794
   hist_gradient_boosting   PR-AUC 0.484  ROC-AUC 0.854  recall 0.704  F1 0.521  accuracy 0.802
-Artifacts: /Users/anushkajain/Desktop/ProductAnalytics/artifacts/ml
+Artifacts: ./artifacts/ml
 52,766 users, 42,089 churn events
   KM by acquisition_channel  log-rank p = 0
   KM by platform             log-rank p = 2e-119
@@ -370,7 +370,7 @@ $ make lint && pytest -q
 (first attempt on :8000 hit another local app - see decisions; re-run on :8010 below)
 API startup: 1.1s
 $ curl -s localhost:8010/api/v1/health
-{"status":"ok","version":"0.2.0","warehouse":"/Users/anushkajain/Desktop/ProductAnalytics/data/warehouse/pulseiq.duckdb","warehouse_built_at":"2026-11-14T17:02:35+00:00","model_version":"hist_gradient_boosting (trained 2026-11-14T17:21:22+00:00, sha deca15b)","git_sha":"deca15b"}
+{"status":"ok","version":"0.2.0","warehouse":"./data/warehouse/pulseiq.duckdb","warehouse_built_at":"2026-11-14T17:02:35+00:00","model_version":"hist_gradient_boosting (trained 2026-11-14T17:21:22+00:00, sha deca15b)","git_sha":"deca15b"}
 $ curl -s localhost:8010/api/v1/experiments/paywall_redesign | head -c 400
 {"experiment_id":"paywall_redesign","name":"Paywall redesign (re-engagement campaign)","hypothesis":"A redesigned paywall raises trial starts among existing free users.","start_date":"2025-03-27","end_date":"2025-04-26","data_end":"2025-05-06 00:00:00","primary_metric":"trial_started_in_test","guardrail_metrics":["refund_in_test"],"secondary_metrics":["paid_in_test","sessions_in_test","net_revenue
 API RSS MB (after requests): 313
