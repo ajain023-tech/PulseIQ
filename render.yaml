@@ -1,0 +1,15 @@
+# Render.com blueprint for the API (optional). Dashboard: Streamlit Community Cloud.
+services:
+  - type: web
+    name: pulseiq-api
+    runtime: docker
+    dockerCommand: sh scripts/bootstrap.sh api
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PULSEIQ_SIZE
+        value: small
+      - key: PULSEIQ_LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false

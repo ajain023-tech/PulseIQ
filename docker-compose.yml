@@ -1,0 +1,43 @@
+# docker compose up --build
+#   API       -> http://localhost:${PULSEIQ_API_PORT:-8000}/docs
+#   dashboard -> http://localhost:${PULSEIQ_DASHBOARD_PORT:-8501}
+# The one-shot `init` service generates data, builds the warehouse, analyses experiments
+# and trains the model into shared volumes; api and dashboard start after it succeeds.
+services:
+  init:
+    build: .
+    command: ["init"]
+    env_file: [{ path: .env, required: false }]
+    volumes: [pulseiq-data:/app/data, pulseiq-artifacts:/app/artifacts]
+
+  api:
+    build: .
+    command: ["api"]
+    env_file: [{ path: .env, required: false }]
+    environment: { PORT: "8000" }
+    ports: ["${PULSEIQ_API_PORT:-8000}:8000"]
+    volumes: [pulseiq-data:/app/data, pulseiq-artifacts:/app/artifacts]
+    depends_on: { init: { condition: service_completed_successfully } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  dashboard:
+    build: .
+    command: ["dashboard"]
+    env_file: [{ path: .env, required: false }]
+    environment: { PORT: "8501" }
+    ports: ["${PULSEIQ_DASHBOARD_PORT:-8501}:8501"]
+    volumes: [pulseiq-data:/app/data, pulseiq-artifacts:/app/artifacts]
+    depends_on: { init: { condition: service_completed_successfully } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8501/_stcore/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pulseiq-data:
+  pulseiq-artifacts:
