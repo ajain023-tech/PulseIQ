@@ -40,12 +40,12 @@ test-fast:  ## Run tests excluding slow ones
 	pytest -q -m "not slow"
 
 lint:  ## Lint and check formatting
-	ruff check src tests
-	ruff format --check src tests
+	ruff check src tests apps scripts
+	ruff format --check src tests apps scripts
 
 format:  ## Auto-format code
-	ruff check --fix src tests
-	ruff format src tests
+	ruff check --fix src tests apps scripts
+	ruff format src tests apps scripts
 
 all: generate build pipeline test  ## Generate + build + analyse + train + test (full size)
 

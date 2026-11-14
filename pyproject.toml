@@ -21,10 +21,23 @@ dependencies = [
   "pydantic~=2.14.3",
   "scipy~=1.17.1",
   "pyyaml~=6.0.3",
+  "statsmodels~=0.15.0",
+  "scikit-learn~=1.9.1",
+  "joblib~=1.6.0",
+  "matplotlib~=3.11.2",
+  "lifelines~=0.30.0",
+  "shap~=0.51.0",
+  "fastapi~=0.162.7",
+  "uvicorn~=0.54.0",
+  "httpx~=0.28.1",
+  "sqlglot~=30.31.0",
+  "streamlit~=1.67.0",
+  "plotly~=7.1.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest~=9.2.0", "ruff~=0.17.5"]
+ai = ["anthropic~=2.8.0"]
+dev = ["pytest~=9.2.0", "ruff~=0.17.5", "playwright~=1.65.2", "anthropic~=2.8.0"]
 
 [project.scripts]
 pulseiq = "pulseiq.cli:app"
@@ -41,6 +54,14 @@ extend-exclude = ["legacy", "warehouse/target", "warehouse/dbt_packages"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "ARG"]
 ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection idiom
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
+[tool.ruff.lint.per-file-ignores]
+# pytest fixtures are often requested only for their side effects
+"tests/*" = ["ARG001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
