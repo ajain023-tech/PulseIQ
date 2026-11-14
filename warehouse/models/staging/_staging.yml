@@ -1,0 +1,259 @@
+version: 2
+
+models:
+  - name: stg_users
+    description: One row per user. Typed dimensions; country_tier derived from country (PPP pricing tier).
+    columns:
+      - name: user_id
+        description: User primary key.
+        data_tests: [unique, not_null]
+      - name: signup_ts
+        description: Account creation timestamp (UTC).
+        data_tests: [not_null]
+      - name: signup_date
+        description: Calendar date of signup.
+      - name: signup_week
+        description: Monday of the signup week (weekly cohort key).
+      - name: country
+        description: ISO-like country code.
+      - name: country_tier
+        description: Pricing tier (high = US/UK/DE, mid = FR/CA/ES, low = IN/BR/ID).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [high, mid, low]
+      - name: platform
+        description: Signup platform.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [ios, android, web]
+      - name: acquisition_channel
+        description: Marketing channel that acquired the user.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [organic, paid_social, search, referral, influencer]
+      - name: device_tier
+        description: Device performance tier.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [low, mid, high]
+      - name: app_version_at_signup
+        description: App version installed at signup.
+      - name: signup_weekday
+        description: Weekday name of signup.
+
+  - name: stg_events
+    description: >
+      One row per unique, valid event. Exact duplicates are removed on event_id,
+      clock-skew rows (event_ts before signup) are dropped, null platform is
+      coalesced from the user's platform, and JSON properties are parsed.
+    columns:
+      - name: event_id
+        description: Event primary key.
+        data_tests: [unique, not_null]
+      - name: user_id
+        description: User who produced the event.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_users')
+                field: user_id
+      - name: session_id
+        description: Session the event belongs to (null for server-side billing events).
+      - name: event_ts
+        description: Event timestamp (UTC).
+        data_tests: [not_null]
+      - name: event_name
+        description: Event type from the taxonomy in docs/EVENT_SCHEMA.md.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [app_install, signup, onboarding_step_viewed, onboarding_step_completed, onboarding_completed,
+                         session_start, session_end, feature_used, paywall_viewed, trial_started,
+                         subscription_started, subscription_renewed, subscription_canceled, refund_issued,
+                         push_received, push_opened]
+      - name: properties
+        description: Raw JSON properties string.
+      - name: platform
+        description: Platform (coalesced).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [ios, android, web]
+      - name: platform_was_null
+        description: True when the raw platform was missing and was coalesced.
+      - name: app_version
+        description: App version at event time.
+      - name: feature
+        description: Feature name for feature_used events.
+      - name: onboarding_step
+        description: Step number (1-5) for onboarding step events.
+      - name: paywall_source
+        description: Where a paywall was shown (onboarding, feature_gate, campaign).
+      - name: paywall_variant
+        description: Paywall design shown (v1 = old, v2 = paywall_redesign treatment).
+      - name: plan
+        description: Plan for trial/subscription events.
+      - name: cancel_reason
+        description: Reason given on subscription_canceled.
+      - name: day_n
+        description: 24 h block since signup (0 = first 24 h).
+
+  - name: stg_sessions
+    description: One row per session.
+    columns:
+      - name: session_id
+        description: Session primary key.
+        data_tests: [unique, not_null]
+      - name: user_id
+        description: Session owner.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_users')
+                field: user_id
+      - name: session_start
+        description: Session start timestamp.
+      - name: session_end
+        description: Session end timestamp.
+      - name: duration_seconds
+        description: Session length in seconds.
+      - name: n_events
+        description: Number of events logged in the session.
+      - name: session_date
+        description: Calendar date of session start.
+      - name: day_n
+        description: 24 h block since signup in which the session started.
+
+  - name: stg_assignments
+    description: One row per user x experiment assignment.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [experiment_id, user_id]
+    columns:
+      - name: experiment_id
+        description: Experiment key.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_experiments')
+                field: experiment_id
+      - name: user_id
+        description: Assigned user.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_users')
+                field: user_id
+      - name: variant
+        description: control or treatment.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [control, treatment]
+      - name: assigned_at
+        description: Assignment timestamp.
+        data_tests: [not_null]
+
+  - name: stg_subscriptions
+    description: One row per trial/subscription.
+    columns:
+      - name: subscription_id
+        description: Subscription primary key.
+        data_tests: [unique, not_null]
+      - name: user_id
+        description: Subscriber.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_users')
+                field: user_id
+      - name: plan
+        description: monthly or annual.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [monthly, annual]
+      - name: price_usd
+        description: List price per billing period in USD (PPP-tiered).
+      - name: currency
+        description: Always USD.
+      - name: trial_started_at
+        description: Trial start.
+        data_tests: [not_null]
+      - name: started_at
+        description: Paid subscription start (trial end); null if the trial did not convert.
+      - name: canceled_at
+        description: Cancellation timestamp, if any.
+      - name: status
+        description: trialing | expired | active | canceled at data end.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [trialing, expired, active, canceled]
+      - name: monthly_value_usd
+        description: Monthly-equivalent price (annual / 12) used for MRR.
+
+  - name: stg_invoices
+    description: One row per invoice (charge or refund).
+    columns:
+      - name: invoice_id
+        description: Invoice primary key.
+        data_tests: [unique, not_null]
+      - name: subscription_id
+        description: Subscription charged.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_subscriptions')
+                field: subscription_id
+      - name: user_id
+        description: Charged user.
+      - name: charged_at
+        description: Charge/refund timestamp.
+      - name: charged_date
+        description: Calendar date of the charge.
+      - name: amount_usd
+        description: Signed amount (refunds negative).
+      - name: is_refund
+        description: True for refunds.
+      - name: gross_usd
+        description: Positive charge amount (0 for refunds).
+      - name: refund_usd
+        description: Refund amount as a positive number (0 for charges).
+
+  - name: stg_experiments
+    description: One row per experiment.
+    columns:
+      - name: experiment_id
+        description: Experiment primary key.
+        data_tests: [unique, not_null]
+      - name: name
+        description: Human-readable name.
+      - name: hypothesis
+        description: Pre-registered hypothesis.
+      - name: start_date
+        description: First day of the test.
+      - name: end_date
+        description: Day after the last day of the test (exclusive).
+      - name: population
+        description: Who is eligible.
+      - name: primary_metric
+        description: Decision metric (column in fct_experiment_exposures).
+      - name: guardrail_metrics
+        description: Metrics that must not get significantly worse.
+      - name: secondary_metrics
+        description: Exploratory metrics.
+      - name: allocation
+        description: Intended treatment share.

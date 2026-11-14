@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw parquet written by `pulseiq generate` (data/raw/).
+    meta:
+      external_location: "{{ env_var('PULSEIQ_RAW_DIR', '../data/raw') }}/{name}.parquet"
+    tables:
+      - name: users
+        description: One row per registered user.
+      - name: events
+        description: One row per client/server event (contains planted duplicates and clock skew).
+      - name: sessions
+        description: One row per app session.
+      - name: experiment_assignments
+        description: One row per user x experiment assignment log entry.
+      - name: subscriptions
+        description: One row per trial/subscription.
+      - name: invoices
+        description: One row per charge or refund.
+      - name: experiments
+        description: One row per experiment with its design metadata.

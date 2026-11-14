@@ -5,7 +5,7 @@
 
 ## A. Project workflow
 
-Data Collection ? Data Cleaning ? EDA ? Statistical Analysis ? Feature Engineering ? ML Model Training ? ML Evaluation ? Retention & A/B Analysis ? Streamlit Dashboard.
+Data Collection → Data Cleaning → EDA → Statistical Analysis → Feature Engineering → ML Model Training → ML Evaluation → Retention & A/B Analysis → Streamlit Dashboard.
 
 The workflow is implemented for the local user-level experiment dataset. Historical full-product SQL/BigQuery analysis is documented separately because its original source exports are not available locally.
 
@@ -30,7 +30,7 @@ The workflow is implemented for the local user-level experiment dataset. Histori
 
 ## F. Feature engineering status
 
-**PASS.** The final inputs are exactly `experiment_treatment`, `onboarding_completed`, `trial_started`, `paid_conversion`, and `d1_retained`; `d30_retained` is the target and `user_id` is identifier-only. The input matrix is 11,462 ? 5, has rank 5, has no missing values, and has no D7, derived-score, identifier, or target leakage. Target counts are 9,770 zeros and 1,692 ones.
+**PASS.** The final inputs are exactly `experiment_treatment`, `onboarding_completed`, `trial_started`, `paid_conversion`, and `d1_retained`; `d30_retained` is the target and `user_id` is identifier-only. The input matrix is 11,462 × 5, has rank 5, has no missing values, and has no D7, derived-score, identifier, or target leakage. Target counts are 9,770 zeros and 1,692 ones.
 
 ## G. ML training status
 
@@ -50,11 +50,11 @@ The positive class is D30 retention. Accuracy alone is insufficient for the imba
 
 ## I. Retention and A/B status
 
-**PASS.** Phase 8 outputs and documentation exist. Overall retention matches the output files: D1 40.73%, D7 18.36%, D30 14.76%. Control/Treatment rates and differences match: D1 40.09%/41.37% (+1.27 pp), D7 18.72%/17.99% (?0.73 pp), D30 14.50%/15.02% (+0.52 pp). Assignment cohort labels are derived from `assigned_at` and are not described as acquisition cohorts. Six A/B tests match Phase 4; the ML retention summary matches Phase 7.
+**PASS.** Phase 8 outputs and documentation exist. Overall retention matches the output files: D1 40.73%, D7 18.36%, D30 14.76%. Control/Treatment rates and differences match: D1 40.09%/41.37% (+1.27 pp), D7 18.72%/17.99% (−0.73 pp), D30 14.50%/15.02% (+0.52 pp). Assignment cohort labels are derived from `assigned_at` and are not described as acquisition cohorts. Six A/B tests match Phase 4; the ML retention summary matches Phase 7.
 
 ## J. SQL analysis status
 
-**PASS.** All 11 SQL files (01?11) exist. No SQL query was modified or deleted during the audit. The dashboard displays SQL topics and local export availability but does not execute SQL or claim that unavailable local user/event/subscription/payment tables were reproduced.
+**PASS.** All 11 SQL files (01–11) exist. No SQL query was modified or deleted during the audit. The dashboard displays SQL topics and local export availability but does not execute SQL or claim that unavailable local user/event/subscription/payment tables were reproduced.
 
 ## K. Dashboard status
 
@@ -84,7 +84,7 @@ The local dataset contains user-level assignment, stage, eligibility, and retent
 | Data cleaning | PASS | 11,462 cleaned users; zero missingness/duplicates/removals. |
 | EDA | PASS | Script, outputs, and documentation exist; compile passes. |
 | Statistical analysis | PASS | Six tests present and cross-phase A/B values match. |
-| Feature engineering | PASS | Exact five inputs; 11,462 ? 5; rank 5; target counts match. |
+| Feature engineering | PASS | Exact five inputs; 11,462 × 5; rank 5; target counts match. |
 | ML training | PASS | Three artifacts load; fitted scaler pipelines and metadata validated. |
 | ML evaluation | PASS | Metrics and confusion matrices match expected values. |
 | Retention / A/B | PASS | Overall and variant retention match; cohorts and integrated summaries exist. |

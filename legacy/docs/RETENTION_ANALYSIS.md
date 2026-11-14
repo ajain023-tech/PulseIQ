@@ -36,7 +36,7 @@ Cohorts are grouped by the calendar month of `assigned_at`; they are assignment 
 
 ## Ordered funnel
 
-The funnel reuses Phase 3 logic: Assigned ? Onboarding Completed ? Trial Started (onboarding plus trial eligibility and start) ? Paid Conversion (prior stages plus paid eligibility and conversion).
+The funnel reuses Phase 3 logic: Assigned → Onboarding Completed → Trial Started (onboarding plus trial eligibility and start) → Paid Conversion (prior stages plus paid eligibility and conversion).
 
 | Stage | Users | Conversion from previous |
 |---|---:|---:|

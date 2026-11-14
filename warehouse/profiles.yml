@@ -1,0 +1,9 @@
+# Committed on purpose: no secrets, paths come from environment variables
+# (set automatically by `pulseiq build`).
+pulseiq:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('PULSEIQ_WAREHOUSE', '../data/warehouse/pulseiq.duckdb') }}"
+      threads: 4

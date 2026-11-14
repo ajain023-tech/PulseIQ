@@ -1,7 +1,7 @@
-# Product Analytics & User Retention Analysis ? Project Workflow
+# Product Analytics & User Retention Analysis — Project Workflow
 
 **Owner:** Anushka Jain  
-**Status:** Phases 1?9 are implemented for the available local user-level experiment dataset. Phase 10 audit and validation is documented separately in `docs/FINAL_PROJECT_AUDIT.md`.
+**Status:** Phases 1–9 are implemented for the available local user-level experiment dataset. Phase 10 audit and validation is documented separately in `docs/FINAL_PROJECT_AUDIT.md`.
 
 The local dataset contains assignment, stage, and retention outcomes for 11,462 users. The original user, event, subscription, and payment exports referenced by historical SQL/BigQuery analysis are not available locally. Local analyses and historical project-level findings are kept clearly distinct.
 
