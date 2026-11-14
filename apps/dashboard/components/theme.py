@@ -40,6 +40,15 @@ def setup(title: str, icon: str = "📊") -> None:
     from .bootstrap import ensure_data
 
     ensure_data()
+    from pulseiq.services.meta import n_users
+
+    if n_users() < 20_000:
+        st.info(
+            f"**Demo dataset ({n_users():,} users).** Small data keeps this hosted demo fast, but experiments are "
+            "underpowered here, so most read KEEP RUNNING. The full-size run recovers every planted effect, "
+            "detects the Android SRM bug and ships the paywall: see the README or run locally with `make all`.",
+            icon="ℹ️",
+        )
 
 
 def pct(v, digits: int = 1) -> str:

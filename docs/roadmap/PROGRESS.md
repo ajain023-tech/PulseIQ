@@ -69,11 +69,11 @@ All checks passed!
 ruff format --check src tests
 18 files already formatted
 $ pulseiq generate --small && pulseiq build
-Generated size=small seed=42 in 0.4s -> /Users/anushkajain/Desktop/ProductAnalytics/data/raw
+Generated size=small seed=42 in 0.4s -> ./data/raw
 dbt build: 22 models, 70 tests in 2.2s
 All models built and all tests passed.
 $ time (pulseiq generate && pulseiq build)
-Generated size=full seed=42 in 10.4s -> /Users/anushkajain/Desktop/ProductAnalytics/data/raw
+Generated size=full seed=42 in 10.4s -> ./data/raw
 dbt build: 22 models, 70 tests in 3.9s
 All models built and all tests passed.
 real 14.72
@@ -119,7 +119,7 @@ Trial started within 14 d (share of eligible signups)   0.163846      0.161794  
               D1 exact-day retention (eligible users)   0.407346      0.404369    0.40          -0.297711
               D7 exact-day retention (eligible users)   0.183563      0.204745    0.20           2.118226
              D30 exact-day retention (eligible users)   0.147618      0.143652    0.15          -0.396593
-Report: /Users/anushkajain/Desktop/ProductAnalytics/artifacts/reports/legacy_vs_generated.md
+Report: ./artifacts/reports/legacy_vs_generated.md
 $ pytest -q
 ...............                                                          [100%]
 15 passed in 14.43s
@@ -214,13 +214,13 @@ ruff format --check src tests
 46 files already formatted
 45 passed in 43.82s
 $ pulseiq generate && pulseiq build
-Generated size=full seed=42 in 10.5s -> /Users/anushkajain/Desktop/ProductAnalytics/data/raw
+Generated size=full seed=42 in 10.5s -> ./data/raw
 dbt build: 22 models, 70 tests in 4.5s
 All models built and all tests passed.
 $ pulseiq analyze --all
-onboarding_flow_v2     KEEP RUNNING  -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/onboarding_flow_v2
-streak_reminder        INVESTIGATE   -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/streak_reminder
-paywall_redesign       SHIP          -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/paywall_redesign
+onboarding_flow_v2     KEEP RUNNING  -> ./artifacts/experiments/onboarding_flow_v2
+streak_reminder        INVESTIGATE   -> ./artifacts/experiments/streak_reminder
+paywall_redesign       SHIP          -> ./artifacts/experiments/paywall_redesign
 Peeking A/A sim: fixed 5.2%, naive peeking 28.7%, sequential 1.3%
 $ pulseiq train && pulseiq survival
 Best model: hist_gradient_boosting {'learning_rate': 0.05, 'max_depth': 3, 'max_leaf_nodes': 15, 'l2_regularization': 1.0}
@@ -228,7 +228,7 @@ Best model: hist_gradient_boosting {'learning_rate': 0.05, 'max_depth': 3, 'max_
   active_days_heuristic    PR-AUC 0.303  ROC-AUC 0.766  recall 0.949  F1 0.375  accuracy 0.518
   logistic_regression      PR-AUC 0.486  ROC-AUC 0.852  recall 0.707  F1 0.512  accuracy 0.794
   hist_gradient_boosting   PR-AUC 0.484  ROC-AUC 0.854  recall 0.704  F1 0.521  accuracy 0.802
-Artifacts: /Users/anushkajain/Desktop/ProductAnalytics/artifacts/ml
+Artifacts: ./artifacts/ml
 52,766 users, 42,089 churn events
   KM by acquisition_channel  log-rank p = 0
   KM by platform             log-rank p = 2e-119
@@ -370,7 +370,7 @@ $ make lint && pytest -q
 (first attempt on :8000 hit another local app - see decisions; re-run on :8010 below)
 API startup: 1.1s
 $ curl -s localhost:8010/api/v1/health
-{"status":"ok","version":"0.2.0","warehouse":"/Users/anushkajain/Desktop/ProductAnalytics/data/warehouse/pulseiq.duckdb","warehouse_built_at":"2026-11-14T17:02:35+00:00","model_version":"hist_gradient_boosting (trained 2026-11-14T17:21:22+00:00, sha deca15b)","git_sha":"deca15b"}
+{"status":"ok","version":"0.2.0","warehouse":"./data/warehouse/pulseiq.duckdb","warehouse_built_at":"2026-11-14T17:02:35+00:00","model_version":"hist_gradient_boosting (trained 2026-11-14T17:21:22+00:00, sha deca15b)","git_sha":"deca15b"}
 $ curl -s localhost:8010/api/v1/experiments/paywall_redesign | head -c 400
 {"experiment_id":"paywall_redesign","name":"Paywall redesign (re-engagement campaign)","hypothesis":"A redesigned paywall raises trial starts among existing free users.","start_date":"2025-03-27","end_date":"2025-04-26","data_end":"2025-05-06 00:00:00","primary_metric":"trial_started_in_test","guardrail_metrics":["refund_in_test"],"secondary_metrics":["paid_in_test","sessions_in_test","net_revenue
 API RSS MB (after requests): 313
@@ -434,3 +434,79 @@ $ pulseiq ai-eval --provider mock
   - Offline mode knows about 20 question shapes.
   - Survival charts ignore the sidebar filters (whole window; labelled as such).
   - Screenshots are viewport-height, because Streamlit scrolls inside a container.
+
+## Phase 4 — Ship (2026-11-14) ✅ (except the steps that need your accounts)
+
+**Branch:** `phase-4-ship`, merged into local `main`. **Not pushed and not tagged**; both are
+waiting for your approval.
+
+### What was built
+- **Docker:**
+  - `Dockerfile`: multi-stage, `python:3.11-slim`, non-root user, healthcheck,
+    `PULSEIQ_SIZE=small`;
+  - `docker-compose.yml`: a one-shot `init` service, then `api` and `dashboard`, sharing
+    volumes, passing `.env` through, with configurable host ports;
+  - `scripts/bootstrap.sh` (idempotent), `.dockerignore`, Makefile `docker-*` targets.
+- **Deploy configs:**
+  - Streamlit Cloud: `requirements.txt` exported from `pyproject.toml` with `-e .`;
+    `.streamlit/config.toml` moved to the repo root; `secrets.toml.example`; the dashboard
+    bootstraps itself on a cold start.
+  - Render: `render.yaml` for the API.
+  - `docs/DEPLOYMENT.md` with click-by-click steps.
+- **README** rewritten for recruiters. The results block is generated by
+  `scripts/render_results.py` from `artifacts/`; `scripts/check_numbers.py` verifies the
+  README, the key numbers in 4 docs, and active-tree hygiene.
+- **Demo kit:** `docs/demo/DEMO_SCRIPT.md` (3-minute and 60-second versions, plus a fallback
+  plan) and `docs/demo/HACKATHON_PITCH.md`. Screenshots of all 9 pages are in `docs/images/`.
+- **Career kit:** `docs/career/RESUME_BULLETS.md` (3 versions, every number cited to an artifact
+  file), `INTERVIEW_PREP.md` (all viva questions plus 10 follow-ups) and `LEARNING_LOG.md`.
+- `docs/FINAL_AUDIT.md`, `CHANGELOG.md`, `LICENSE` (MIT), `CONTRIBUTING.md`.
+
+### Decisions and deviations
+- **Docker is not installed** on this machine, so the image was never built. Its entrypoint was
+  verified from a clean clone.
+- **Hosted demo:** full-size generation peaks at about 4.3 GB RAM and the dbt build at about
+  2.7 GB (measured), so the cloud runs small mode. Its experiments are underpowered, so the
+  dashboard shows a banner and points to the full-size results.
+- **Shell safety:** the Docker apt-cache cleanup uses `apt-get clean` instead of `rm -rf`
+  (a shell safety check blocked commands containing that line). The image is slightly larger.
+- **Paths:** absolute machine paths were removed from this log (repo-relative now).
+- **Author links:** only the GitHub account from the repo URL appears. LinkedIn and Tableau stay
+  "TBD" until you provide them.
+
+### Clean-clone acceptance run (fresh `git clone` + fresh venv)
+```text
+$ make install
+real 106.42
+user 16.19
+sys 6.47
+$ make all
+Generated size=full seed=42 in 11.5s -> <tmp>/final-clone/data/raw
+dbt build: 22 models, 70 tests in 5.1s
+All models built and all tests passed.
+Peeking A/A sim: fixed 5.2%, naive peeking 28.7%, sequential 1.3%
+Best model: hist_gradient_boosting {'learning_rate': 0.05, 'max_depth': 3, 'max_leaf_nodes': 15, 'l2_regularization': 1.0}
+Peeking A/A sim: fixed 5.2%, naive peeking 28.7%, sequential 1.3%
+98 passed, 39 warnings in 55.38s
+real 114.50
+$ pulseiq ai-eval --provider mock
+  "overall_correct_pct": 1.0,
+$ python scripts/render_results.py --check
+README results match artifacts
+$ python scripts/check_numbers.py
+OK: checked README results, 4 docs and 151 files
+$ python scripts/export_requirements.py --check
+requirements.txt is up to date
+```
+
+### Waiting on you
+1. **Approve `git push`** of `main` (and the phase branches) to
+   `https://github.com/ajain023-tech/ProductAnalytics.git`, then the **`v1.0.0` tag**.
+2. **Deploy** the dashboard on Streamlit Community Cloud (`docs/DEPLOYMENT.md`, about 5 minutes),
+   then put the URL in the README badge.
+3. **Optional:** choose an LLM provider and add a key to run the real-LLM eval and record the
+   score in `docs/AI_ANALYST.md`.
+4. **Your links:** LinkedIn and Tableau URLs (or remove those placeholders).
+5. **Optional:** install Docker Desktop and run `docker compose up --build` to close audit item 18.
+6. Add `ProductAnalytics/` to `~/Desktop/.gitignore` (your Desktop is itself a git repo for
+   another project).

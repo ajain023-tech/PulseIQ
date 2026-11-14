@@ -54,3 +54,9 @@ def build_info() -> dict:
         "model_version": model,
         "git_sha": sha,
     }
+
+
+@cached
+def n_users() -> int:
+    """Number of users in the warehouse (used to flag the small demo dataset)."""
+    return int(query("select count(*) from dim_users").iloc[0, 0])
