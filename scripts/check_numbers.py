@@ -24,19 +24,36 @@ def claims(f: dict) -> dict[str, list[str]]:
     pc1 = lambda v: f"{v * 100:.1f} %"  # noqa: E731
     return {
         "docs/EXPERIMENTATION.md": [
-            f"{f['effects_covered']} / {f['effects_total']}", pc1(f["cuped_ci_width_reduction"]),
-            pc1(f["cuped_variance_reduction"]), pc1(f["fpr_naive"]), pc1(f["fpr_sequential"]),
-            pc1(f["fpr_fixed"]), f["onboarding_flow_v2_decision"], f["paywall_redesign_decision"],
+            f"{f['effects_covered']} / {f['effects_total']}",
+            pc1(f["cuped_ci_width_reduction"]),
+            pc1(f["cuped_variance_reduction"]),
+            pc1(f["fpr_naive"]),
+            pc1(f["fpr_sequential"]),
+            pc1(f["fpr_fixed"]),
+            f["onboarding_flow_v2_decision"],
+            f["paywall_redesign_decision"],
             f["streak_reminder_decision"],
         ],
         "docs/ML_RETENTION.md": [
-            p3(f["pr_auc_model"]), p3(f["pr_auc_majority"]), p3(f["pr_auc_heuristic"]), p3(f["pr_auc_lr"]),
-            p3(f["recall_model"]), p3(f["roc_auc_model"]), p3(f["cox_hr_reminder"]),
+            p3(f["pr_auc_model"]),
+            p3(f["pr_auc_majority"]),
+            p3(f["pr_auc_heuristic"]),
+            p3(f["pr_auc_lr"]),
+            p3(f["recall_model"]),
+            p3(f["roc_auc_model"]),
+            p3(f["cox_hr_reminder"]),
         ],
-        "docs/MODEL_CARD.md": [p3(f["pr_auc_model"]), p3(f["roc_auc_model"]), p3(f["recall_model"])],
+        "docs/MODEL_CARD.md": [
+            p3(f["pr_auc_model"]),
+            p3(f["roc_auc_model"]),
+            p3(f["recall_model"]),
+        ],
         "docs/career/RESUME_BULLETS.md": [
-            f"{f['effects_covered']}/{f['effects_total']}", f"{f['cuped_ci_width_reduction'] * 100:.0f}%",
-            f"{f['fpr_naive'] * 100:.1f}%", p3(f["pr_auc_model"]), p3(f["pr_auc_majority"]),
+            f"{f['effects_covered']}/{f['effects_total']}",
+            f"{f['cuped_ci_width_reduction'] * 100:.0f}%",
+            f"{f['fpr_naive'] * 100:.1f}%",
+            p3(f["pr_auc_model"]),
+            p3(f["pr_auc_majority"]),
         ],
     }
 
@@ -50,7 +67,7 @@ def main() -> int:
     from render_results import END, START, block
 
     readme = (ROOT / "README.md").read_text()
-    current = readme[readme.find(START): readme.find(END) + len(END)]
+    current = readme[readme.find(START) : readme.find(END) + len(END)]
     if current != block():
         problems.append("README RESULTS block is stale (run `make results`)")
     f = facts()
@@ -63,10 +80,19 @@ def main() -> int:
         for n in needles:
             if n not in text and n.replace(" %", "%") not in text:
                 problems.append(f"{doc}: expected to quote '{n}' (from artifacts) but it does not")
-    active = [p for p in ROOT.rglob("*") if p.is_file() and p.suffix in {".py", ".md", ".yml", ".yaml", ".toml", ".sql", ".sh"}
-              and not any(part in {".venv", "legacy", ".git", "target", "logs", "artifacts", "data", "node_modules"} for part in p.parts)
-              and not (p.parent.name == "roadmap" and p.name.startswith("PHASE_"))
-              and p.name != "check_numbers.py"]
+    active = [
+        p
+        for p in ROOT.rglob("*")
+        if p.is_file()
+        and p.suffix in {".py", ".md", ".yml", ".yaml", ".toml", ".sql", ".sh"}
+        and not any(
+            part
+            in {".venv", "legacy", ".git", "target", "logs", "artifacts", "data", "node_modules"}
+            for part in p.parts
+        )
+        and not (p.parent.name == "roadmap" and p.name.startswith("PHASE_"))
+        and p.name != "check_numbers.py"
+    ]
     for p in active:
         t = p.read_text(errors="ignore")
         if "/Users/" in t:
@@ -77,7 +103,9 @@ def main() -> int:
             problems.append(f"{p.relative_to(ROOT)}: TODO/FIXME marker")
     for msg in problems:
         print("FAIL", msg)
-    print(f"{'OK' if not problems else 'FAILED'}: checked README results, {len(claims(f))} docs and {len(active)} files")
+    print(
+        f"{'OK' if not problems else 'FAILED'}: checked README results, {len(claims(f))} docs and {len(active)} files"
+    )
     return 1 if problems else 0
 
 

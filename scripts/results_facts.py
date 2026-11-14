@@ -28,7 +28,10 @@ def facts() -> dict:
     meta = _load("ml/model_meta.json")
     ai = _load("reports/ai_eval.json")["summary"]
     surv = _load("ml/survival.json")
-    reps = {e: _load(f"experiments/{e}/report.json") for e in ("onboarding_flow_v2", "paywall_redesign", "streak_reminder")}
+    reps = {
+        e: _load(f"experiments/{e}/report.json")
+        for e in ("onboarding_flow_v2", "paywall_redesign", "streak_reminder")
+    }
     cox = {c["feature"]: c for c in surv["cox"]}
     best = meta["model"]
     f = {

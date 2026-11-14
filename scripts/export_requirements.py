@@ -30,7 +30,11 @@ if __name__ == "__main__":
     target = ROOT / "requirements.txt"
     if "--check" in sys.argv:
         ok = target.exists() and target.read_text() == text
-        print("requirements.txt is up to date" if ok else "requirements.txt is stale - run make requirements")
+        print(
+            "requirements.txt is up to date"
+            if ok
+            else "requirements.txt is stale - run make requirements"
+        )
         sys.exit(0 if ok else 1)
     target.write_text(text)
     print(f"wrote {target}")
