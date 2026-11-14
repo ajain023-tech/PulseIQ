@@ -18,7 +18,7 @@ Checks were run on the development Mac (Apple Silicon, Python 3.11 via uv) and o
 | 11 | Dashboard cold start from an empty data dir (simulates the cloud) | ✅ | first page in 10.5 s (target < 60 s); all 9 pages pass on small data |
 | 12 | Dashboard narrow filters / empty states | ✅ | `tests/test_dashboard.py` (AppTest) |
 | 13 | AI analyst guardrails + eval | ✅ | 22 attack patterns blocked; mock eval 25/25 |
-| 14 | No machine-specific paths, no TODO/FIXME, no foreign Tableau link in the active tree | ✅ | `check_numbers.py` hygiene scan |
+| 14 | No machine-specific paths, no leftover to-do / fix-me markers, no foreign Tableau link in the active tree | ✅ | `check_numbers.py` hygiene scan |
 | 15 | No secrets committed; `.env` and `secrets.toml` ignored | ✅ | grep for key patterns: none; `.gitignore` |
 | 16 | No empty or garbled files in the active tree | ✅ | `find -empty`, `?` scan (empty v1 files remain only under `legacy/`, listed in `legacy/README.md`) |
 | 17 | Legacy v1 preserved | ✅ | `legacy/` (moved with `git mv`, history intact) |
