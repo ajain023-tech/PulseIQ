@@ -140,6 +140,9 @@ class ExperimentReport(BaseModel):
     decision: str
     reasons: list[str]
     charts: dict[str, str] = {}
+    skipped_metrics: list[str] = Field(
+        default_factory=list, description="metrics with too few eligible users in an arm to analyse"
+    )
     generated_at: str
 
     def metric(self, name: str) -> MetricResult:
@@ -310,7 +313,13 @@ def analyze_experiment(
         + [(m, "guardrail") for m in data.guardrail_metrics]
         + [(m, "secondary") for m in data.secondary_metrics]
     )
-    results = [_metric_readout(data, m, r, use_cuped, design, seed) for m, r in roles]
+    results, skipped = [], []
+    for m, role in roles:
+        c, t = _arm_arrays(data.df, METRICS[m].eligibility)
+        if role != "primary" and (len(c) < 2 or len(t) < 2):
+            skipped.append(m)
+            continue
+        results.append(_metric_readout(data, m, role, use_cuped, design, seed))
     if not bayesian:
         for r in results:
             r.bayesian = None
@@ -380,6 +389,7 @@ def analyze_experiment(
         segments=segs,
         decision=decision,
         reasons=reasons,
+        skipped_metrics=skipped,
         generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
     )
 
@@ -505,6 +515,8 @@ def render_markdown(r: ExperimentReport) -> str:
             )
     if r.charts:
         lines += ["", "## Charts", *[f"![{k}]({Path(v).name})" for k, v in r.charts.items()]]
+    if r.skipped_metrics:
+        lines += ["", "Skipped (no eligible users yet in an arm): " + ", ".join(r.skipped_metrics)]
     lines += ["", f"_Generated {r.generated_at}._", ""]
     return "\n".join(lines)
 

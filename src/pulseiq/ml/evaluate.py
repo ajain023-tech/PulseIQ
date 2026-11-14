@@ -99,9 +99,14 @@ def plot_pr_roc(y: np.ndarray, scores: dict[str, np.ndarray], out: Path) -> dict
     fig, ax = plt.subplots(figsize=(6.5, 4.5))
     for (name, s), c in zip(scores.items(), colors, strict=False):
         prec, rec, _ = precision_recall_curve(y, s)
-        ax.plot(
-            rec, prec, color=c, lw=1.8, label=f"{name} (AP {average_precision_score(y, s):.3f})"
-        )
+        # Drop sklearn's artificial (recall=0, precision=1) end point: for constant or
+        # few-valued scores it draws a misleading straight line to the top-left corner.
+        prec, rec = prec[:-1], rec[:-1]
+        label = f"{name} (AP {average_precision_score(y, s):.3f})"
+        if len(rec) <= 2:
+            ax.plot(rec, prec, "o", color=c, ms=7, label=label)
+        else:
+            ax.step(rec, prec, where="post", color=c, lw=1.8, label=label)
     ax.axhline(y.mean(), color="black", ls=":", lw=1, label=f"prevalence {y.mean():.3f}")
     ax.set(
         xlabel="Recall (retained users found)",

@@ -184,9 +184,39 @@ def survival() -> None:
 
 
 @app.command()
-def serve() -> None:
-    """Run the API (Phase 3)."""
-    _later(3)
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Bind address (0.0.0.0 in Docker)."),
+    port: int = typer.Option(8000),
+    reload: bool = typer.Option(False),
+) -> None:
+    """Run the FastAPI service (Swagger UI at /docs)."""
+    import uvicorn
+
+    uvicorn.run("pulseiq.api.app:app", host=host, port=port, reload=reload, log_level="info")
+
+
+@app.command("ai-eval")
+def ai_eval(
+    provider: str = typer.Option("mock", help="mock | offline | gemini | anthropic | openai"),
+) -> None:
+    """Run the AI-analyst eval set -> artifacts/reports/ai_eval.{md,json}."""
+    from pulseiq.ai.evals.run_evals import run
+
+    summary = run(provider, get_settings().artifacts_dir / "reports")
+    typer.echo(json.dumps(summary, indent=2))
+
+
+@app.command()
+def ask(question: str, provider: str = typer.Option(None)) -> None:
+    """Ask the AI analyst a question from the terminal."""
+    from pulseiq.ai.agent import ask as run_ask
+
+    r = run_ask(question, provider=provider)
+    typer.echo(f"[{r.provider}] {r.answer}")
+    if r.sql:
+        typer.echo(f"SQL: {r.sql}")
+    for c in r.caveats:
+        typer.echo(f"  - {c}")
 
 
 if __name__ == "__main__":

@@ -282,3 +282,155 @@ All three explicit planted drivers are in the top 5: **yes**.
   - `artifacts/ml/{pr_curve,roc_curve,calibration,confusion_matrix,gain_chart,permutation_importance,shap_summary,km_acquisition_channel,km_platform,km_onboarding_variant}.png`;
   - `artifacts/ml/{model_meta,metrics,threshold_table,survival}.json`;
   - `artifacts/reports/{experiment_validation,ml_validation,legacy_vs_generated}.md`.
+
+## Phase 3 — Product layer: API, dashboard, AI analyst (2026-11-14) ✅
+
+**Branch:** `phase-3-product-ai`, merged into `main` after the acceptance checks passed.
+
+### What was built
+- **Service layer** (`src/pulseiq/services/`): `kpis`, `funnel`, `retention`, `revenue`,
+  `experiments`, `predictions`, `meta`, `filters` and `db`.
+  - Every function takes explicit `Filters` (date range, platform, channel, country tier).
+  - Queries run on a read-only DuckDB connection with a per-call cursor.
+  - Results go through a TTL cache.
+  - There is no SQL in UI code.
+- **FastAPI** (`src/pulseiq/api/app.py`) under `/api/v1`:
+  - endpoints: health, kpis, funnel, retention/cohorts, revenue/daily, experiments,
+    experiments/{id}, POST experiments/{id}/analyze, POST power,
+    predictions/users/{id}, predictions/at-risk, POST ask;
+  - pydantic models everywhere, 422 on invalid filters and inputs, 404 for unknown
+    experiments and users, timing middleware (`X-Response-Time-ms`), CORS for
+    localhost;
+  - run with `pulseiq serve`.
+- **Dashboard** (`apps/dashboard/`): Home plus 8 pages (Funnel, Retention, Revenue,
+  Experiments, Experiment Designer, Retention Model, AI Analyst, Data & Methods).
+  - Shared sidebar filters persist in `st.session_state`.
+  - One Okabe-Ito plotly theme; every chart has a title and a one-line takeaway.
+  - Empty states when filters match nobody.
+  - Cold-start bootstrap: a small warehouse plus artifacts are built if missing.
+- **AI analyst** (`src/pulseiq/ai/`):
+  - catalog built from dbt `schema.yml`; prompts with few-shot examples;
+  - provider-agnostic `llm.py` (gemini default | anthropic via the official SDK |
+    openai | mock | offline);
+  - sqlglot `guard.py`; `agent.py` with a single retry; tools that route experiment
+    questions to the validated engine;
+  - offline intent engine; 25-question eval (`pulseiq ai-eval`); `pulseiq ask`.
+- **Tests:**
+  - `test_api.py`: every endpoint;
+  - `test_dashboard.py`: AppTest renders all 9 pages, 4 of them under narrow filters,
+    plus an AI page interaction;
+  - `test_ai_guard.py`: 22 malicious statements, LIMIT, timeout, read-only
+    connection, retry, malformed output, offline when no key, eval.
+- `scripts/bench_api.py` (p95 latency); `scripts/screenshots.py` (headless Chromium
+  visits every page, fails on any Streamlit exception, saves `docs/images/*.png`).
+- Docs: `docs/AI_ANALYST.md`.
+
+### Decisions and deviations
+- **No paid LLM key was used.** The roadmap says to ask first, so everything is built
+  and evaluated with the `mock`/`offline` providers. The `anthropic` client is
+  constructed and its parameters (`betas`, `fallbacks`, `output_config`) were checked
+  against SDK 2.8.0, but **no request was sent**.
+- **Default Claude model** is `claude-opus-5-5`, with server-side refusal fallbacks
+  (`fallbacks="default"`) and low effort for latency. The Gemini default stays as the
+  roadmap specifies.
+- **Paid conversion KPI:** cohort paid-within-30-days is undefined for the most recent
+  28 days. The Home KPI is therefore "Trial → paid": the conversion of trials that
+  ended in the period.
+- **Port 8000** is already used on this machine by another local project (PreBuyIq's
+  uvicorn, running before this session; it was left untouched). `pulseiq serve
+  --port` is configurable; the checks used :8010. Docker Compose should map a
+  configurable host port.
+- **Playwright + headless Chromium** were installed in `.venv` for the real-browser
+  page check. The v1 audit never did one.
+- **Bugs found by the new tests and fixed:**
+  - the engine crashed on metrics with zero eligible users (small data); they are now
+    skipped and listed in `skipped_metrics`;
+  - the funnel crashed when filters matched nobody (NULL sums);
+  - the AI parser read "device tier" as country tier;
+  - the PR-curve chart drew sklearn's artificial (recall 0, precision 1) point, so the
+    constant baseline *looked* better than the model;
+  - the SRM bar chart axis hid the deviation.
+- **v1 dashboard features superseded:**
+  - Executive Overview → Home; User Funnel → Funnel;
+  - User & Segment Analysis → Funnel segments + Retention curves;
+  - Retention & Cohorts → Retention; A/B Experiment → Experiments;
+  - ML Retention Prediction → Retention Model;
+  - Documented Monetization → Revenue (now reproducible);
+  - Data & Methodology → Data & Methods.
+- **Intentionally dropped:**
+  - "SQL Analysis": its BigQuery files can't run. The dbt lineage graph plus the AI
+    analyst replace it.
+  - "Project Workflow": replaced by the roadmap docs.
+
+### Acceptance checks (output)
+```text
+$ make lint && pytest -q
+87 files already formatted
+98 passed in 49.89s
+(first attempt on :8000 hit another local app - see decisions; re-run on :8010 below)
+API startup: 1.1s
+$ curl -s localhost:8010/api/v1/health
+{"status":"ok","version":"0.2.0","warehouse":"/Users/anushkajain/Desktop/ProductAnalytics/data/warehouse/pulseiq.duckdb","warehouse_built_at":"2026-11-14T17:02:35+00:00","model_version":"hist_gradient_boosting (trained 2026-11-14T17:21:22+00:00, sha deca15b)","git_sha":"deca15b"}
+$ curl -s localhost:8010/api/v1/experiments/paywall_redesign | head -c 400
+{"experiment_id":"paywall_redesign","name":"Paywall redesign (re-engagement campaign)","hypothesis":"A redesigned paywall raises trial starts among existing free users.","start_date":"2025-03-27","end_date":"2025-04-26","data_end":"2025-05-06 00:00:00","primary_metric":"trial_started_in_test","guardrail_metrics":["refund_in_test"],"secondary_metrics":["paid_in_test","sessions_in_test","net_revenue
+API RSS MB (after requests): 313
+Swagger: 200 /docs
+Dashboard RSS MB: 90
+$ python scripts/bench_api.py
+endpoint                                           p50 ms   p95 ms
+GET /api/v1/health                                   11.6     12.6
+GET /api/v1/kpis                                      1.2      1.4
+GET /api/v1/kpis?platform=ios&channel=referral        1.2      1.3
+GET /api/v1/funnel?by=channel                         1.2      1.3
+GET /api/v1/retention/cohorts                         1.8      2.0
+GET /api/v1/revenue/daily                             1.7      1.9
+GET /api/v1/experiments                               1.2      1.3
+GET /api/v1/experiments/paywall_redesign              1.1      1.1
+GET /api/v1/predictions/at-risk?limit=50              2.4      2.8
+POST /api/v1/power                                    1.7      1.8
+worst p95: 12.6 ms -> PASS (target < 300 ms)
+$ streamlit run apps/dashboard/Home.py  (every page checked in headless Chromium)
+home                   PASS       title='PulseIQ — Product Analytics & Experimentation'
+funnel                 PASS       title='Funnel'
+retention              PASS       title='Retention'
+revenue                PASS       title='Revenue'
+experiments            PASS       title='Experiments'
+experiment_designer    PASS       title='Experiment designer'
+retention_model        PASS       title='D30 retention model'
+ai_analyst             PASS       title='AI Product Analyst'
+data_methods           PASS       title='Data & methods'
+$ pulseiq ai-eval --provider mock
+{
+  "provider": "mock",
+  "n_questions": 25,
+  "sql_valid_pct": 1.0,
+  "execution_success_pct": 1.0,
+  "answer_correct_pct": 1.0,
+  "refusal_correct_pct": 1.0,
+  "false_refusals": 0,
+  "overall_correct_pct": 1.0,
+  "median_latency_ms": 1.4372500008903444
+}
+
+```
+
+### Hand-off to Phase 4
+- **Run:**
+  - `pulseiq serve --host 0.0.0.0 --port 8000`;
+  - `streamlit run apps/dashboard/Home.py --server.port 8501`.
+- **Environment variables:** `PULSEIQ_SEED`, `PULSEIQ_SIZE` (`small` for cloud),
+  `PULSEIQ_DATA_DIR`, `PULSEIQ_ARTIFACTS_DIR`, `PULSEIQ_WAREHOUSE`,
+  `PULSEIQ_LLM_PROVIDER`, `PULSEIQ_LLM_MODEL`, plus one of `GEMINI_API_KEY` /
+  `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`.
+- **Startup:**
+  - API ~1 s; ~310 MB RSS after the first requests (full warehouse plus model).
+  - Dashboard ~90 MB idle.
+  - Cold start in small mode runs generate + build + analyse + train inside the
+    dashboard (~30 s).
+- **AI eval (mock):** 25/25; SQL valid 100 %, execution 100 %, refusals 100 %. Real
+  provider: not run, no key.
+- **Screenshots:** `docs/images/{home,funnel,retention,revenue,experiments,experiment_designer,retention_model,ai_analyst,data_methods}.png`.
+- **Rough edges:**
+  - Offline mode knows about 20 question shapes.
+  - Survival charts ignore the sidebar filters (whole window; labelled as such).
+  - Screenshots are viewport-height, because Streamlit scrolls inside a container.
