@@ -154,3 +154,131 @@ dict_keys(['onboarding_flow_v2', 'paywall_redesign', 'streak_reminder'])
 - The paywall test's trial metric is `trial_started_in_test` (window
   `[assigned_at, test_end)`). Its ground truth is relative +8 % (absolute in
   `true_effects_abs`).
+
+## Phase 2 — Experimentation engine & retention ML (2026-11-14) ✅
+
+**Branch:** `phase-2-exp-ml`, merged into `main` after the acceptance checks passed.
+
+### What was built
+- `src/pulseiq/experiments/`:
+  - SRM overall and per segment, plus root-cause localisation;
+  - two-proportion z, Newcombe and delta-method relative CIs; Welch t and bootstrap;
+  - CUPED; Holm and BH corrections;
+  - mSPRT sequential test with confidence sequences and the A/A peeking simulation;
+  - Beta-Binomial Bayesian readout; power, MDE and days-to-run;
+  - segment HTE; the decision framework; and a pydantic `ExperimentReport` with
+    markdown and charts.
+- `src/pulseiq/ml/`:
+  - leakage-free 72 h features and a time split;
+  - majority and active-days baselines, class-balanced LR and HGB with small
+    validation grids, and isotonic calibration;
+  - PR/ROC, calibration, confusion, gain and threshold table;
+  - permutation importance and SHAP;
+  - Kaplan–Meier, log-rank and Cox (lifelines);
+  - `predict_user` and `score_recent`.
+- `src/pulseiq/validation.py`: the only non-test code that reads `ground_truth.json`.
+  It writes `experiment_validation.md` and `ml_validation.md`.
+- CLI: `pulseiq analyze [--all]`, `train`, `survival`, `validate`. Makefile:
+  `analyze`, `train`, `survival`, `validate`, `pipeline`; `all` now runs the whole
+  pipeline.
+- Tests:
+  - `test_experiments_stats.py`: 19 hand-computable unit tests, including Newcombe's
+    published example and a statsmodels power cross-check;
+  - `test_experiments_truth.py` (slow): truth coverage, SRM, CUPED, decisions, A/A;
+  - `test_no_leakage.py`, `test_ml.py` (the slow part checks driver recovery).
+- Docs: `EXPERIMENTATION.md`, `ML_RETENTION.md`, `MODEL_CARD.md`.
+
+### Decisions and deviations
+- **SRM localisation:** the low country tier was also significant only because it
+  is 43 % of traffic. A segment counts as a "likely cause" only if excluding it
+  removes the SRM *and* leaves the rest close to 50/50.
+- **Guardrails use non-inferiority tolerances** (pre-registered in `metrics.py`).
+  "Significantly worse" leads to DON'T SHIP; "CI still allows harm beyond tolerance"
+  leads to KEEP RUNNING. For `onboarding_flow_v2` that produces KEEP RUNNING, with
+  about 10 days needed to bound paid conversion within 1 pp.
+- **CUPED** uses the pre-registered covariate `pre_sessions_14d` and is skipped
+  automatically for experiments randomised at signup.
+- **Sequential looks** are retrospective daily looks by assignment date.
+  `paywall_redesign` assigned everyone on one day, so it reports "not applicable".
+- **ML target** is exact-day D30, consistent with Phase 1. HGB was selected on
+  validation and ties LR on test (0.484 vs 0.486); this is reported, not hidden.
+- **Calibration:** isotonic, clipped to [0.001, 0.999]. Ranking metrics use the
+  uncalibrated scores to avoid isotonic ties. The campaign band is the bottom 20 %
+  of the validation score.
+- `lifelines` and `shap` both installed, so there was no fallback.
+
+### Acceptance checks (output)
+```text
+$ make lint && pytest -q
+ruff format --check src tests
+46 files already formatted
+45 passed in 43.82s
+$ pulseiq generate && pulseiq build
+Generated size=full seed=42 in 10.5s -> /Users/anushkajain/Desktop/ProductAnalytics/data/raw
+dbt build: 22 models, 70 tests in 4.5s
+All models built and all tests passed.
+$ pulseiq analyze --all
+onboarding_flow_v2     KEEP RUNNING  -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/onboarding_flow_v2
+streak_reminder        INVESTIGATE   -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/streak_reminder
+paywall_redesign       SHIP          -> /Users/anushkajain/Desktop/ProductAnalytics/artifacts/experiments/paywall_redesign
+Peeking A/A sim: fixed 5.2%, naive peeking 28.7%, sequential 1.3%
+$ pulseiq train && pulseiq survival
+Best model: hist_gradient_boosting {'learning_rate': 0.05, 'max_depth': 3, 'max_leaf_nodes': 15, 'l2_regularization': 1.0}
+  majority_baseline        PR-AUC 0.153  ROC-AUC 0.500  recall 0.000  F1 0.000  accuracy 0.847
+  active_days_heuristic    PR-AUC 0.303  ROC-AUC 0.766  recall 0.949  F1 0.375  accuracy 0.518
+  logistic_regression      PR-AUC 0.486  ROC-AUC 0.852  recall 0.707  F1 0.512  accuracy 0.794
+  hist_gradient_boosting   PR-AUC 0.484  ROC-AUC 0.854  recall 0.704  F1 0.521  accuracy 0.802
+Artifacts: /Users/anushkajain/Desktop/ProductAnalytics/artifacts/ml
+52,766 users, 42,089 churn events
+  KM by acquisition_channel  log-rank p = 0
+  KM by platform             log-rank p = 2e-119
+  KM by onboarding_variant   log-rank p = 0.158
+  Cox HR reminder_set_any           0.494 [0.483, 0.506]
+  Cox HR workout_log_72h            0.885 [0.880, 0.889]
+  Cox HR active_days_72h            0.448 [0.438, 0.457]
+  Cox HR sessions_72h               1.012 [0.999, 1.024]
+  Cox HR onboarding_completed_72h   0.755 [0.741, 0.770]
+$ pulseiq validate
+artifacts/ml:
+$ cat artifacts/reports/experiment_validation.md (summary)
+**12 / 12 planted effects lie inside the engine's 95 % CI.**
+SRM flagged only on `streak_reminder`: **yes**; localised to Android: **yes**.
+Covariate `pre_sessions_14d`: variance reduction 56.7%, CI width reduction **34.1%** (target ≥ 20 %).
+| Naive peeking (stop at first p < 0.05) | 28.7% |
+| mSPRT always-valid sequential test | 1.3% |
+Best model `hist_gradient_boosting`: test PR-AUC **0.484** vs majority baseline 0.153 and active-days heuristic 0.303; recall 0.704 at the validation-chosen threshold.
+| Rank | Feature (permutation importance on test) | Drop in PR-AUC | Planted driver? |
+All three explicit planted drivers are in the top 5: **yes**.
+```
+
+### Known issues
+- Kaplan–Meier median survival is 2–4 days for every group, because most users
+  churn in week 1. The differences show up in the tails (S(30d)), which is what the
+  docs report.
+- sklearn emits harmless runtime warnings from scaling constant one-hot columns in
+  tiny test splits (small dataset only).
+
+### Hand-off to Phase 3
+- **Experiments:**
+  - `pulseiq.experiments.analyze_experiment(con, id, sequential, bayesian, cuped) -> ExperimentReport`;
+  - `save_report(report, dir)` and `load_report(path)`;
+  - cached reports live at `artifacts/experiments/<id>/report.json`;
+  - `pulseiq.experiments.data.list_experiments(con)`.
+- **Schema:** `ExperimentReport` fields are experiment_id, name, hypothesis,
+  start/end_date, data_end, primary/guardrail/secondary metrics, n_control,
+  n_treatment, srm (SRMResult with segments, flagged_segments, likely_causes),
+  metrics (list[MetricResult] with raw and decision estimates, cuped, bayesian,
+  p_adjusted), cuped_status, power (PowerSummary), sequential (dict trace), segments,
+  decision, reasons, charts, generated_at.
+- **Prediction:**
+  - `pulseiq.ml.predict.predict_user(con, user_id, ml_dir)` returns p_retained_d30,
+    risk_band, top_contributions, or None for an unknown user;
+  - `score_recent(con, ml_dir, days=14)` returns a DataFrame sorted by risk;
+  - the model is loaded once per process (`lru_cache`), so latency is a few ms per
+    user on the small warehouse.
+- **Artifacts:**
+  - `artifacts/experiments/<id>/{forest,sequential,posterior}.png`;
+  - `artifacts/experiments/peeking_simulation.{png,json}`;
+  - `artifacts/ml/{pr_curve,roc_curve,calibration,confusion_matrix,gain_chart,permutation_importance,shap_summary,km_acquisition_channel,km_platform,km_onboarding_variant}.png`;
+  - `artifacts/ml/{model_meta,metrics,threshold_table,survival}.json`;
+  - `artifacts/reports/{experiment_validation,ml_validation,legacy_vs_generated}.md`.
