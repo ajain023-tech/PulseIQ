@@ -75,21 +75,112 @@ def _later(phase: int) -> None:
 
 
 @app.command()
-def analyze(experiment_id: str = typer.Argument(None)) -> None:  # noqa: ARG001
-    """Analyse experiments (Phase 2)."""
-    _later(2)
+def analyze(
+    experiment_id: str = typer.Argument(None, help="Experiment id (omit with --all)."),
+    all_: bool = typer.Option(False, "--all", help="Analyse every experiment."),
+    sequential: bool = typer.Option(True, "--sequential/--no-sequential"),
+    bayesian: bool = typer.Option(True, "--bayesian/--no-bayesian"),
+    cuped: bool = typer.Option(True, "--cuped/--no-cuped"),
+) -> None:
+    """Analyse experiments -> artifacts/experiments/<id>/report.{json,md} + charts."""
+    from pulseiq.experiments import analyze_experiment, save_report
+    from pulseiq.experiments.data import list_experiments
+    from pulseiq.warehouse import connect
+
+    settings = get_settings()
+    with connect() as con:
+        ids = list_experiments(con) if all_ or experiment_id is None else [experiment_id]
+        for exp_id in ids:
+            rep = analyze_experiment(
+                con, exp_id, sequential=sequential, bayesian=bayesian, cuped=cuped
+            )
+            out = save_report(rep, settings.artifacts_dir / "experiments" / exp_id)
+            typer.echo(f"{exp_id:<22} {rep.decision:<13} -> {out}")
+    if all_ or experiment_id is None:
+        _peeking(settings)
+
+
+def _peeking(settings) -> dict:
+    from pulseiq.experiments.charts import peeking_plot
+    from pulseiq.experiments.sequential import simulate_peeking
+
+    sim = simulate_peeking()
+    out = settings.artifacts_dir / "experiments"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "peeking_simulation.json").write_text(json.dumps(sim, indent=2))
+    peeking_plot(sim, out / "peeking_simulation.png")
+    typer.echo(
+        f"Peeking A/A sim: fixed {sim['fpr_fixed_horizon']:.1%}, naive peeking "
+        f"{sim['fpr_naive_peeking']:.1%}, sequential {sim['fpr_sequential']:.1%}"
+    )
+    return sim
+
+
+@app.command()
+def validate() -> None:
+    """Compare experiment reports with ground truth -> artifacts/reports/experiment_validation.md."""
+    from pulseiq.experiments import analyze_experiment
+    from pulseiq.experiments.data import list_experiments
+    from pulseiq.validation import load_ground_truth, write_experiment_validation
+    from pulseiq.warehouse import connect
+
+    settings = get_settings()
+    with connect() as con:
+        reports = {e: analyze_experiment(con, e) for e in list_experiments(con)}
+    summary = write_experiment_validation(
+        reports,
+        load_ground_truth(settings),
+        _peeking(settings),
+        settings.artifacts_dir / "reports" / "experiment_validation.md",
+    )
+    typer.echo(json.dumps(summary, indent=2))
+    ml_meta = settings.artifacts_dir / "ml" / "model_meta.json"
+    if ml_meta.exists():
+        from pulseiq.validation import write_ml_validation
+
+        ml = write_ml_validation(
+            json.loads(ml_meta.read_text()),
+            load_ground_truth(settings),
+            settings.artifacts_dir / "reports" / "ml_validation.md",
+        )
+        typer.echo(json.dumps(ml, indent=2))
 
 
 @app.command()
 def train() -> None:
-    """Train the retention model (Phase 2)."""
-    _later(2)
+    """Train + evaluate the D30 retention model -> artifacts/ml/."""
+    from pulseiq.ml.pipeline import run_training
+    from pulseiq.warehouse import connect
+
+    settings = get_settings()
+    with connect() as con:
+        meta = run_training(con, settings.artifacts_dir / "ml")
+    typer.echo(f"Best model: {meta['model']} {meta['params']}")
+    for name, m in meta["metrics_test"].items():
+        typer.echo(
+            f"  {name:<24} PR-AUC {m['pr_auc']:.3f}  ROC-AUC {m['roc_auc']:.3f}  "
+            f"recall {m['recall']:.3f}  F1 {m['f1']:.3f}  accuracy {m['accuracy']:.3f}"
+        )
+    typer.echo(f"Artifacts: {settings.artifacts_dir / 'ml'}")
 
 
 @app.command()
 def survival() -> None:
-    """Survival analysis (Phase 2)."""
-    _later(2)
+    """Kaplan-Meier, log-rank and Cox time-to-churn analysis -> artifacts/ml/."""
+    from pulseiq.ml.pipeline import run_survival
+    from pulseiq.warehouse import connect
+
+    settings = get_settings()
+    with connect() as con:
+        res = run_survival(con, settings.artifacts_dir / "ml")
+    typer.echo(f"{res['n_users']:,} users, {res['churn_events']:,} churn events")
+    for km in res["km"]:
+        typer.echo(f"  KM by {km['by']:<20} log-rank p = {km['logrank_p']:.3g}")
+    for c in res["cox"]:
+        if not c["feature"].startswith("_"):
+            typer.echo(
+                f"  Cox HR {c['feature']:<26} {c['hazard_ratio']:.3f} [{c['ci_low']:.3f}, {c['ci_high']:.3f}]"
+            )
 
 
 @app.command()
